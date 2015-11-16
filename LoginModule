@@ -1,0 +1,1 @@
+curl -c cookies.txt -u username https://isis.tu-berlin.de/local/isis/login.php 
