@@ -1,0 +1,5 @@
+#!/bin/bash
+clear
+curl -u username -L -s -o osiris.html htttps://teaching.inet.tu-berlin.de/tubitauth/osiris/submissions/tests
+grep -m 1 'TestResult' osiris.html
+rm osiris.html
