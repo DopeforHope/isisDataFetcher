@@ -1,7 +1,0 @@
-curl -c cookies.txt -u username https://teaching.inet.tu-berlin.de/tubitauth/osiris
-
-
-
-curl -c cookies.txt --data "j_username=******&j_password=*****&Submit=Login" https://shibboleth.tubit.tu-berlin.de/idp/Authn/UserPassword
-Gibt was anderes zuruck als
-curl -c cookies.txt --data "j_username=******&j_password=*****=*****&Submit=Login" https://shibboleth.tubit.tu-berlin.de/idp/Authn/UserPassword
