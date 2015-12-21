@@ -1,9 +1,0 @@
-#!/bin/bash
-clear
-read -p "Enter host username: " username
-printf "\n"
-curl -u $username -L -s -o osiris.html https://teaching.inet.tu-berlin.de/tubitauth/osiris/submissions/tests
-grep -m 1 "TestResult" osiris.html
-#lineNumber = $(grep -m 1 -n "TestResult" osiris.html |cut -f1 -d:)
-#awk {'NR==$lineNumber'} ... get variable with revision number and test result status ... osiris.html
-rm osiris.html
