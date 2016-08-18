@@ -6,7 +6,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import numpy as np
 
 
-class isisDataFetcher():
+class IsisDataFetcher():
 
     def __init__(self):
         name = ""
@@ -14,7 +14,7 @@ class isisDataFetcher():
         while((name == "") | (pw == "")):
             name = input("Loginname: ")
             print("Login :", name)
-            pw = input("Password: ")#TODO: nicer password taking
+            pw = input("Password: ")  # TODO: nicer password taking
             print("PW :", pw)
 
         dcap = dict(DesiredCapabilities.PHANTOMJS)
@@ -23,94 +23,85 @@ class isisDataFetcher():
 
         self.driver = webdriver.PhantomJS(desired_capabilities=dcap, service_args=['--ignore-ssl-errors=true'])
 
-        #goto isis page because direct access is not permitted
+        # goto ISIS page because direct access is not permitted
         self.driver.get("https://isis.tu-berlin.de/")
 
-        #wait until page is up
+        # wait until page is up
         wait = WebDriverWait(self.driver, 10)
         wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "div.content")))
 
-        #click shibbolethbutton to go to login page
+        # click shibbolethbutton to go to login page
         self.driver.find_element_by_id('shibbolethbutton').click()
-
 
         # Fill the login form and submit it
         self.driver.find_element_by_name('j_username').send_keys(name)
         self.driver.find_element_by_id('password').send_keys(pw)
         self.driver.find_element_by_name('Submit').submit()
 
-    def getToStartSeite(self):
+    def get_to_start_seite(self):
         return self.driver.get("https://isis.tu-berlin.de/my/index.php?mynumber=-2")
 
-    def getCourseAndLinks(self):
+    def get_course_and_links(self):
 
-        self.getToStartSeite()
+        self.get_to_start_seite()
 
-        courseContainer = self.driver.find_element_by_class_name("course_list")
+        course_container = self.driver.find_element_by_xpath("//*[contains(concat(' ', @class, ' '), 'course_list')]")
 
-        courseList = courseContainer.find_elements_by_xpath(".//*[contains(@id,'course')]")
-        courseArray = np.asarray(courseList)
+        course_list = course_container.find_elements_by_xpath(".//*[contains(@id,'course')]")
+        course_array = np.asarray(course_list)
         title = []
         links = []
 
-        for i in range(len(courseArray)):
-            title.append(courseArray[i].find_element_by_tag_name("a").get_attribute("title"))
-            links.append(courseArray[i].find_element_by_tag_name("a").get_attribute("href"))
+        for i in range(len(course_array)):
+            title.append(course_array[i].find_element_by_tag_name("a").get_attribute("title"))
+            links.append(course_array[i].find_element_by_tag_name("a").get_attribute("href"))
 
-        titleArr = np.asarray(title)
-        linkArr = np.asarray(links)
+        title_arr = np.asarray(title)
+        link_arr = np.asarray(links)
 
-        return np.vstack((titleArr,linkArr)).T
+        return np.vstack((title_arr, link_arr)).T
 
-        #tAndLArray[0] is your first course with link
-        # - Example:['Programmierpraktikum Cyber-Physical Systems SS16', 'https://isis.tu-berlin.de/course/view.php?id=6852']
+        # tAndLArray[0] is your first course with link
+        # - Example:
+        # ['Programmierpraktikum Cyber-Physical Systems SS16', 'https://isis.tu-berlin.de/course/view.php?id=6852']
 
-    def getWeeksAndPDFs(self, url):
+    def get_weeks_and_pdfs(self, url):
 
-        #goto course page
+        # goto course page
         self.driver.get(url)
 
-        weekContainer = self.driver.find_element_by_class_name("weeks")
+        week_container = self.driver.find_element_by_xpath('//*[@id="main"]/div/div/ul')
 
-        weeks = weekContainer.find_elements_by_xpath(".//*[contains(@id,'section')]")
+        # weeks = week_container.find_elements_by_xpath(".//*[contains(@id,'section')]")
+        weeks = week_container.find_elements_by_xpath("//li")
 
         weeks = np.asarray(weeks)
 
-        weekTitles = []
-
-        weekPdfs = []
-
+        week_titles = []
+        week_pdfs = []
 
         for i in range(len(weeks)):
-            wTitle = weeks[i].get_attribute("aria-label")
-            if(wTitle != None):
-                pdfLinks = []
+            w_title = weeks[i].get_attribute("aria-label")
+            if(w_title is not None):
+                pdf_links = []
 
-                weekTitles.append(wTitle)
-                weekContent = weeks[i].find_element_by_class_name("content").find_element_by_tag_name("ul")
-                weekContent = np.asarray(weekContent.find_elements_by_xpath(".//*[contains(@id,'module')]"))
-                for wE in weekContent:
-                    #print(wE.get_attribute("class"))
+                week_titles.append(w_title)
+                week_content = weeks[i].find_element_by_class_name("content").find_element_by_tag_name("ul")
+                week_content = np.asarray(week_content.find_elements_by_xpath(".//*[contains(@id,'module')]"))
+                for wE in week_content:
+                    # print(wE.get_attribute("class"))
                     if("resource" in wE.get_attribute("class")):
-                        pdfLinks.append(wE.find_element_by_tag_name("a").get_attribute("href"))
-                weekPdfs.append(pdfLinks)
+                        pdf_links.append(wE.find_element_by_tag_name("a").get_attribute("href"))
+                week_pdfs.append(pdf_links)
 
-        weekTitles = np.asarray(weekTitles)
-        weekPdfs = np.asarray(weekPdfs)
+        week_titles = np.asarray(week_titles)
+        week_pdfs = np.asarray(week_pdfs)
 
-        return(np.vstack((weekTitles,weekPdfs)).T)
+        return (np.vstack((week_titles, week_pdfs)).T)
 
-    def makeFolderTitle(self, titles):
+    def make_folder_title(self, titles):
         results = []
         for i in range(len(titles)):
             results.append(''.join([c for c in titles[i] if not(c.islower() | c.isspace())]))
         return np.asarray(results)
 
-
-
-dataF = isisDataFetcher()
-tAndLArray = dataF.getCourseAndLinks()
-
-print(tAndLArray)
-print(tAndLArray[:,0])
-print(dataF.makeFolderTitle(tAndLArray[:,0]))
