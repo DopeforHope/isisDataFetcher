@@ -34,9 +34,9 @@ class IsisDataFetcher():
         self.driver.find_element_by_id('shibbolethbutton').click()
 
         # Fill the login form and submit it
-        self.driver.find_element_by_name('j_username').send_keys(name)
+        self.driver.find_element_by_id('username').send_keys(name)
         self.driver.find_element_by_id('password').send_keys(pw)
-        self.driver.find_element_by_name('Submit').submit()
+        self.driver.find_element_by_id('login-button').click()
 
     def get_to_start_seite(self):
         return self.driver.get("https://isis.tu-berlin.de/my/index.php?mynumber=-2")
@@ -104,4 +104,3 @@ class IsisDataFetcher():
         for i in range(len(titles)):
             results.append(''.join([c for c in titles[i] if not(c.islower() | c.isspace())]))
         return np.asarray(results)
-
