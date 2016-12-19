@@ -6,18 +6,20 @@ from selenium.webdriver.support import expected_conditions as EC
 import numpy as np
 import re
 
-#IsisLink object
-#attributes: link - url, type - later specified, right now only 'pdf'
+
+# IsisLink object
+# attributes: link - url, type - later specified, right now only 'pdf'
 class IsisLink():
     def __init__(self, link, type):
         self.link = link
-        self.type = type #pdf,
+        self.type = type  # pdf,
 
     def __repr__(self):
         return "IsisLink{link: " + self.link + ", type: " + self.type + "}"
 
-#IsisCourse object
-#attributes: link - url, name - name of the course
+
+# IsisCourse object
+# attributes: link - url, name - name of the course
 class IsisCourse():
     def __init__(self, link, name):
         self.link = link
@@ -28,11 +30,11 @@ class IsisCourse():
 
 
 class IsisDataFetcher():
-
     def __init__(self):
+        print("Please note that the IsisDataFetcher needs around 2-5 secs per course on PC(8GB Ram, AMD A8-5600K APU )")
         name = ""
         pw = ""
-        while((name == "") | (pw == "")):
+        while ((name == "") | (pw == "")):
             name = input("Loginname: ")
             print("Login :", name)
             pw = input("Password: ")  # TODO: nicer password taking
@@ -40,7 +42,7 @@ class IsisDataFetcher():
 
         dcap = dict(DesiredCapabilities.PHANTOMJS)
         dcap["phantomjs.page.settings.userAgent"] = (
-           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/53 (KHTML, like Gecko) Chrome/15.0.87")
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/53 (KHTML, like Gecko) Chrome/15.0.87")
 
         self.driver = webdriver.PhantomJS(desired_capabilities=dcap, service_args=['--ignore-ssl-errors=true'])
 
@@ -59,7 +61,7 @@ class IsisDataFetcher():
         self.driver.find_element_by_id('password').send_keys(pw)
         self.driver.find_element_by_id('login-button').click()
 
-        #TODO: implement check for right login
+        # TODO: implement check for right login
 
     def get_to_start_seite(self):
         return self.driver.get("https://isis.tu-berlin.de/my/index.php?mynumber=-2")
@@ -73,7 +75,7 @@ class IsisDataFetcher():
         course_list = course_container.find_elements_by_xpath(".//*[contains(@id,'course')]")
         course_array = np.asarray(course_list)
 
-        result=[]
+        result = []
         for i in range(len(course_array)):
             title = course_array[i].find_element_by_tag_name("a").get_attribute("title")
             link = course_array[i].find_element_by_tag_name("a").get_attribute("href")
@@ -98,7 +100,7 @@ class IsisDataFetcher():
 
         for i in range(len(weeks)):
             w_title = weeks[i].get_attribute("aria-label")
-            if(w_title is not None):
+            if (w_title is not None):
                 pdf_links = []
 
                 week_titles.append(w_title)
@@ -106,7 +108,7 @@ class IsisDataFetcher():
                 week_content = np.asarray(week_content.find_elements_by_xpath(".//*[contains(@id,'module')]"))
                 for wE in week_content:
                     # print(wE.get_attribute("class"))
-                    if("resource" in wE.get_attribute("class")):
+                    if ("resource" in wE.get_attribute("class")):
                         pdf_links.append(wE.find_element_by_tag_name("a").get_attribute("href"))
                 week_pdfs.append(pdf_links)
 
@@ -118,68 +120,82 @@ class IsisDataFetcher():
     def make_folder_title(self, titles):
         results = []
         for i in range(len(titles)):
-            results.append(''.join([c for c in titles[i] if not(c.islower() | c.isspace())]))
+            results.append(''.join([c for c in titles[i] if not (c.islower() | c.isspace())]))
         return np.asarray(results)
 
-    #returns IsisLink() for each link specified type from a course
+    # returns IsisLink() for each link specified type from a course
     def get_all_links_from_course(self, url):
 
-        #goto url
+        # goto url
         self.driver.get(url)
 
-        #extract all element with a href attribute
-        linkElements = self.driver.find_elements_by_xpath("//*[@href]")
+        #fastWay = self.driver.find_element_by_xpath('//*[@id="main"]/div/div/ul')
+        # extract all element with a href attribute
+        linkElements = self.driver.find_elements_by_xpath('//*[@id="main"]/div/div/ul//*[@href]')
 
         result = []
+        print('fetched ' + str(len(linkElements)) + 'Links')
         for linkElem in linkElements:
-            link = linkElem.get_attribute('href')
+            # TODO: solve Element is no longer attached to the DOM problem...timeout of Elements?
+            try:
+                link = linkElem.get_attribute('href')
+            except:
+                print('Stale Element')
+                continue
 
-            if(self.check_for_pdf_link(link)):
+            print('looking at link: ' + link)
+            if (self.check_for_pdf_link(link)):
                 isisObj = IsisLink(link, 'pdf')
                 result.append(isisObj)
-            elif(self.check_for_mod_link(link)):
+            elif (self.check_for_mod_link(link)):
+                print()
                 type = self.check_mod_link_for_type(linkElem)
-                if(type != None):
+                if (type != None):
                     isisObj = IsisLink(link, type)
                     result.append(isisObj)
         return result
 
-    #checks link for pdf extension
-    #input: link
-    #output: boolean
+    # checks link for pdf extension
+    # input: link
+    # output: boolean
+    # TODO: find a nice way than catching
     def check_for_pdf_link(self, link):
         if re.match('^.*\.(pdf)', link):
             return True
         else:
             return False
 
-    #matches Link with regEx for known Isis/moodle links
-    #input: link
-    #output: boolean
+    # matches Link with regEx for known Isis/moodle links
+    # input: link
+    # output: boolean
     def check_for_mod_link(self, link):
-        if re.match('(^https:\/\/isis\.tu-berlin\.de\/mod\/resource\/.*|^https:\/\/isis\.tu-berlin\.de\/mod\/url\/.*)', link):
+        if re.match('(^https:\/\/isis\.tu-berlin\.de\/mod\/resource\/.*|^https:\/\/isis\.tu-berlin\.de\/mod\/url\/.*)',
+                    link):
             return True
         else:
             return False
 
-    #gets the icon of a webelem and checks with known icon for type
-    #input: WebElement - <a> tag with (^https:\/\/isis\.tu-berlin\.de\/mod\/resource\/.*|^https:\/\/isis\.tu-berlin\.de\/mod\/url\/.*) link
-    #output: type - see IsisLink()
+    # gets the icon of a webelem and checks with known icon for type
+    # input: WebElement - <a> tag with (^https:\/\/isis\.tu-berlin\.de\/mod\/resource\/.*|^https:\/\/isis\.tu-berlin\.de\/mod\/url\/.*) link
+    # output: type - see IsisLink()
     # TODO: add more types
     def check_mod_link_for_type(self, wElem):
-        img = wElem.find_element_by_tag_name('img')
-        icon = img.get_attribute('src')
-        print(icon)
-        if(icon == "https://isis.tu-berlin.de/theme/image.php/isis_theme/core/1476377631/f/pdf-24"):
+        img = wElem.find_elements_by_tag_name('img')
+        if(img == []):
+            print('no img')
+            return None
+        icon = img[0].get_attribute('src')
+        if (icon == "https://isis.tu-berlin.de/theme/image.php/isis_theme/core/1476377631/f/pdf-24"):
             return 'pdf'
         else:
             return None
 
 
-
-
 df = IsisDataFetcher()
 courseAndLinks = df.get_course_and_links()
-print(courseAndLinks[0])
-lFromCourse = df.get_all_links_from_course(courseAndLinks[0].link)
-print(lFromCourse)
+allLinks = []
+for i in courseAndLinks:
+    print("searching course " + i.name)
+    allLinks += df.get_all_links_from_course(i.link)
+print(allLinks)
+print(str(len(allLinks)))
