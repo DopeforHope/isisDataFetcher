@@ -4,6 +4,27 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support import expected_conditions as EC
 import numpy as np
+import re
+
+#IsisLink object
+#attributes: link - url, type - later specified, right now only 'pdf'
+class IsisLink():
+    def __init__(self, link, type):
+        self.link = link
+        self.type = type #pdf,
+
+    def __repr__(self):
+        return "IsisLink{link: " + self.link + ", type: " + self.type + "}"
+
+#IsisCourse object
+#attributes: link - url, name - name of the course
+class IsisCourse():
+    def __init__(self, link, name):
+        self.link = link
+        self.name = name
+
+    def __repr__(self):
+        return "IsisCourse{link: " + self.link + ", name: " + self.name + "}"
 
 
 class IsisDataFetcher():
@@ -38,6 +59,8 @@ class IsisDataFetcher():
         self.driver.find_element_by_id('password').send_keys(pw)
         self.driver.find_element_by_id('login-button').click()
 
+        #TODO: implement check for right login
+
     def get_to_start_seite(self):
         return self.driver.get("https://isis.tu-berlin.de/my/index.php?mynumber=-2")
 
@@ -49,21 +72,14 @@ class IsisDataFetcher():
 
         course_list = course_container.find_elements_by_xpath(".//*[contains(@id,'course')]")
         course_array = np.asarray(course_list)
-        title = []
-        links = []
 
+        result=[]
         for i in range(len(course_array)):
-            title.append(course_array[i].find_element_by_tag_name("a").get_attribute("title"))
-            links.append(course_array[i].find_element_by_tag_name("a").get_attribute("href"))
+            title = course_array[i].find_element_by_tag_name("a").get_attribute("title")
+            link = course_array[i].find_element_by_tag_name("a").get_attribute("href")
+            result.append(IsisCourse(link, title))
 
-        title_arr = np.asarray(title)
-        link_arr = np.asarray(links)
-
-        return np.vstack((title_arr, link_arr)).T
-
-        # tAndLArray[0] is your first course with link
-        # - Example:
-        # ['Programmierpraktikum Cyber-Physical Systems SS16', 'https://isis.tu-berlin.de/course/view.php?id=6852']
+        return result
 
     def get_weeks_and_pdfs(self, url):
 
@@ -104,3 +120,66 @@ class IsisDataFetcher():
         for i in range(len(titles)):
             results.append(''.join([c for c in titles[i] if not(c.islower() | c.isspace())]))
         return np.asarray(results)
+
+    #returns IsisLink() for each link specified type from a course
+    def get_all_links_from_course(self, url):
+
+        #goto url
+        self.driver.get(url)
+
+        #extract all element with a href attribute
+        linkElements = self.driver.find_elements_by_xpath("//*[@href]")
+
+        result = []
+        for linkElem in linkElements:
+            link = linkElem.get_attribute('href')
+
+            if(self.check_for_pdf_link(link)):
+                isisObj = IsisLink(link, 'pdf')
+                result.append(isisObj)
+            elif(self.check_for_mod_link(link)):
+                type = self.check_mod_link_for_type(linkElem)
+                if(type != None):
+                    isisObj = IsisLink(link, type)
+                    result.append(isisObj)
+        return result
+
+    #checks link for pdf extension
+    #input: link
+    #output: boolean
+    def check_for_pdf_link(self, link):
+        if re.match('^.*\.(pdf)', link):
+            return True
+        else:
+            return False
+
+    #matches Link with regEx for known Isis/moodle links
+    #input: link
+    #output: boolean
+    def check_for_mod_link(self, link):
+        if re.match('(^https:\/\/isis\.tu-berlin\.de\/mod\/resource\/.*|^https:\/\/isis\.tu-berlin\.de\/mod\/url\/.*)', link):
+            return True
+        else:
+            return False
+
+    #gets the icon of a webelem and checks with known icon for type
+    #input: WebElement - <a> tag with (^https:\/\/isis\.tu-berlin\.de\/mod\/resource\/.*|^https:\/\/isis\.tu-berlin\.de\/mod\/url\/.*) link
+    #output: type - see IsisLink()
+    # TODO: add more types
+    def check_mod_link_for_type(self, wElem):
+        img = wElem.find_element_by_tag_name('img')
+        icon = img.get_attribute('src')
+        print(icon)
+        if(icon == "https://isis.tu-berlin.de/theme/image.php/isis_theme/core/1476377631/f/pdf-24"):
+            return 'pdf'
+        else:
+            return None
+
+
+
+
+df = IsisDataFetcher()
+courseAndLinks = df.get_course_and_links()
+print(courseAndLinks[0])
+lFromCourse = df.get_all_links_from_course(courseAndLinks[0].link)
+print(lFromCourse)
